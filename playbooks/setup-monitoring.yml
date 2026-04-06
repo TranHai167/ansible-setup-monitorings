@@ -46,6 +46,7 @@
       pip:
         name: docker
         state: present
+        extra_args: --user
 
     - name: Start Docker service
       systemd:
