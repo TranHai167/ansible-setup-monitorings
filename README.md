@@ -21,7 +21,6 @@ monitoring-setup/
 ```bash
 # Cài Ansible + SSM plugin
 pip install ansible boto3
-pip install ansible-collection-community-aws
 
 # Cài SSM connection plugin
 ansible-galaxy collection install community.aws
