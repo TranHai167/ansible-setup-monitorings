@@ -164,6 +164,32 @@
                   labels:
                     severity: critical
 
+            - name: service_health
+              rules:
+                - alert: ContainerDown
+                  expr: (time() - container_last_seen{name!=""}) > 60
+                  for: 1m
+                  labels:
+                    severity: critical
+                  annotations:
+                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} is down"
+
+                - alert: PHPFPMDown
+                  expr: phpfpm_up == 0
+                  for: 30s
+                  labels:
+                    severity: critical
+                  annotations:
+                    summary: "PHP-FPM is down on {{ '{{' }} $labels.instance {{ '}}' }}"
+
+                - alert: TargetDown
+                  expr: up == 0
+                  for: 1m
+                  labels:
+                    severity: critical
+                  annotations:
+                    summary: "{{ '{{' }} $labels.job {{ '}}' }} target {{ '{{' }} $labels.instance {{ '}}' }} is down"
+
     - name: Create Alertmanager config
       copy:
         dest: "{{ monitoring_base_dir }}/alertmanager/alertmanager.yml"
