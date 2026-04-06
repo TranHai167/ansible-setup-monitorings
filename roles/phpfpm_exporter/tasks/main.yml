@@ -1,6 +1,6 @@
 ---
 - name: Check if php-fpm is running
-  shell: pgrep -x php-fpm || pgrep -f "php-fpm: master"
+  shell: 'pgrep -x php-fpm || pgrep -f "php-fpm: master"'
   register: phpfpm_check
   ignore_errors: true
   changed_when: false
