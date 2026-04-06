@@ -1,0 +1,14 @@
+[Unit]
+Description=PHP-FPM Exporter
+After=network.target
+
+[Service]
+Type=simple
+ExecStart=/usr/local/bin/php-fpm_exporter server \
+  --phpfpm.scrape-uri="{{ phpfpm_scrape_uri }}" \
+  --web.listen-address=":{{ phpfpm_exporter_port }}"
+Restart=always
+RestartSec=5
+
+[Install]
+WantedBy=multi-user.target

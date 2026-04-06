@@ -1,0 +1,279 @@
+---
+# Playbook: Cài Prometheus + Grafana + Alertmanager bằng Docker trên EC2 monitoring
+# Usage: ansible-playbook playbooks/setup-monitoring.yml -e "target_ip=<PRIVATE_IP_OF_TARGET_EC2>"
+- name: Setup monitoring stack on EC2 (Docker)
+  hosts: monitoring_server
+  become: true
+  gather_facts: true
+
+  vars:
+    # IP của EC2 target - PHẢI truyền vào khi chạy
+    target_ip: "{{ lookup('env', 'TARGET_IP') }}"
+    monitoring_base_dir: /opt/monitoring
+
+    # AWS SES SMTP credentials - truyền vào khi chạy hoặc dùng vault
+    # Tạo SMTP credentials tại: AWS Console → SES → SMTP Settings → Create SMTP Credentials
+    ses_smtp_username: "{{ lookup('env', 'SES_SMTP_USERNAME') }}"
+    ses_smtp_password: "{{ lookup('env', 'SES_SMTP_PASSWORD') }}"
+    alert_from_email: "{{ lookup('env', 'FROM_EMAIL') | default('cloudtrail@sts.vn', true) }}"
+    alert_to_email: "{{ lookup('env', 'TO_EMAIL') | default('awscloudtraillogs@sts.vn', true) }}"
+
+  pre_tasks:
+    - name: Fail if target_ip not set
+      fail:
+        msg: "Bạn cần truyền target_ip. Ví dụ: -e 'target_ip=10.0.1.100'"
+      when: target_ip | length == 0
+
+    - name: Install Docker (Amazon Linux)
+      dnf:
+        name:
+          - docker
+        state: present
+
+    - name: Install docker-compose plugin
+      shell: |
+        mkdir -p /usr/local/lib/docker/cli-plugins
+        curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+        chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+      args:
+        creates: /usr/local/lib/docker/cli-plugins/docker-compose
+
+    - name: Install python3-pip and docker SDK
+      dnf:
+        name:
+          - python3-pip
+        state: present
+
+    - name: Install docker Python SDK
+      pip:
+        name: docker
+        state: present
+        extra_args: --user
+
+    - name: Start Docker service
+      systemd:
+        name: docker
+        state: started
+        enabled: true
+
+    - name: Create monitoring directories
+      file:
+        path: "{{ item }}"
+        state: directory
+        mode: "0755"
+      loop:
+        - "{{ monitoring_base_dir }}"
+        - "{{ monitoring_base_dir }}/prometheus"
+        - "{{ monitoring_base_dir }}/alertmanager"
+        - "{{ monitoring_base_dir }}/grafana"
+
+  tasks:
+    - name: Create Prometheus config
+      copy:
+        dest: "{{ monitoring_base_dir }}/prometheus/prometheus.yml"
+        mode: "0644"
+        content: |
+          global:
+            scrape_interval: 15s
+            evaluation_interval: 15s
+
+          rule_files:
+            - "alert_rules.yml"
+
+          alerting:
+            alertmanagers:
+              - static_configs:
+                  - targets: ["alertmanager:9093"]
+
+          scrape_configs:
+            - job_name: "prometheus"
+              static_configs:
+                - targets: ["localhost:9090"]
+
+            - job_name: "node-exporter"
+              static_configs:
+                - targets: ["{{ target_ip }}:9100"]
+                  labels:
+                    instance_name: "target-ec2"
+
+            - job_name: "cadvisor"
+              static_configs:
+                - targets: ["{{ target_ip }}:8080"]
+                  labels:
+                    instance_name: "target-ec2"
+
+            - job_name: "phpfpm"
+              static_configs:
+                - targets: ["{{ target_ip }}:9253"]
+                  labels:
+                    instance_name: "target-ec2"
+
+    - name: Create Prometheus alert rules
+      copy:
+        dest: "{{ monitoring_base_dir }}/prometheus/alert_rules.yml"
+        mode: "0644"
+        content: |
+          groups:
+            - name: host_alerts
+              rules:
+                - alert: HighCPU
+                  expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+                  for: 5m
+                  labels:
+                    severity: warning
+                  annotations:
+                    summary: "High CPU on {{ '{{' }} $labels.instance {{ '}}' }}"
+
+                - alert: HighMemory
+                  expr: (1 - node_memory_MemAvailable_bytes / node_memory_MemTotal_bytes) * 100 > 85
+                  for: 5m
+                  labels:
+                    severity: warning
+
+                - alert: DiskSpaceLow
+                  expr: (1 - node_filesystem_avail_bytes{fstype!="tmpfs"} / node_filesystem_size_bytes) * 100 > 85
+                  for: 5m
+                  labels:
+                    severity: critical
+
+            - name: docker_alerts
+              rules:
+                - alert: ContainerHighCPU
+                  expr: rate(container_cpu_usage_seconds_total{name!=""}[5m]) * 100 > 80
+                  for: 5m
+                  labels:
+                    severity: warning
+
+                - alert: ContainerHighMemory
+                  expr: container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes * 100 > 85
+                  for: 5m
+                  labels:
+                    severity: warning
+
+            - name: phpfpm_alerts
+              rules:
+                - alert: PHPFPMQueueHigh
+                  expr: phpfpm_listen_queue > 10
+                  for: 2m
+                  labels:
+                    severity: warning
+
+                - alert: PHPFPMMaxChildrenReached
+                  expr: rate(phpfpm_max_children_reached[5m]) > 0
+                  for: 1m
+                  labels:
+                    severity: critical
+
+    - name: Create Alertmanager config
+      copy:
+        dest: "{{ monitoring_base_dir }}/alertmanager/alertmanager.yml"
+        mode: "0644"
+        content: |
+          route:
+            receiver: "ses-email"
+            group_wait: 30s
+            group_interval: 5m
+            repeat_interval: 4h
+
+          receivers:
+            - name: "ses-email"
+              email_configs:
+                - to: "{{ alert_to_email }}"
+                  from: "{{ alert_from_email }}"
+                  smarthost: "email-smtp.ap-southeast-1.amazonaws.com:587"
+                  auth_username: "{{ ses_smtp_username }}"
+                  auth_password: "{{ ses_smtp_password }}"
+                  auth_identity: "{{ ses_smtp_username }}"
+                  require_tls: true
+                  send_resolved: true
+                  headers:
+                    Subject: '[ALERT] {{ "{{" }} .GroupLabels.alertname {{ "}}" }} - {{ "{{" }} .Status {{ "}}" }}'
+
+    - name: Create Docker Compose file
+      copy:
+        dest: "{{ monitoring_base_dir }}/docker-compose.yml"
+        mode: "0644"
+        content: |
+          services:
+            prometheus:
+              image: prom/prometheus:v2.53.0
+              container_name: prometheus
+              restart: always
+              ports:
+                - "9090:9090"
+              volumes:
+                - ./prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+                - ./prometheus/alert_rules.yml:/etc/prometheus/alert_rules.yml:ro
+                - prometheus_data:/prometheus
+              command:
+                - '--config.file=/etc/prometheus/prometheus.yml'
+                - '--storage.tsdb.path=/prometheus'
+                - '--storage.tsdb.retention.time=7d'
+                - '--storage.tsdb.retention.size=15GB'
+                - '--web.enable-lifecycle'
+
+            grafana:
+              image: grafana/grafana:11.1.0
+              container_name: grafana
+              restart: always
+              ports:
+                - "3000:3000"
+              volumes:
+                - grafana_data:/var/lib/grafana
+              environment:
+                - GF_SECURITY_ADMIN_PASSWORD=admin
+                - GF_USERS_ALLOW_SIGN_UP=false
+
+            alertmanager:
+              image: prom/alertmanager:v0.27.0
+              container_name: alertmanager
+              restart: always
+              ports:
+                - "9093:9093"
+              volumes:
+                - ./alertmanager/alertmanager.yml:/etc/alertmanager/alertmanager.yml:ro
+
+          volumes:
+            prometheus_data:
+            grafana_data:
+
+    - name: Start monitoring stack
+      shell: docker compose up -d
+      args:
+        chdir: "{{ monitoring_base_dir }}"
+
+    - name: Wait for services to start
+      pause:
+        seconds: 10
+
+    - name: Check Prometheus
+      uri:
+        url: http://localhost:9090/-/healthy
+        return_content: false
+      register: prom_check
+      ignore_errors: true
+
+    - name: Check Grafana
+      uri:
+        url: http://localhost:3000/api/health
+        return_content: false
+      register: grafana_check
+      ignore_errors: true
+
+    - name: Show access info
+      debug:
+        msg: |
+          === Monitoring Stack Status ===
+          Prometheus  (9090): {{ 'OK' if prom_check is success else 'FAILED' }}
+          Grafana     (3000): {{ 'OK' if grafana_check is success else 'FAILED' }}
+          Alertmanager(9093): Running
+
+          === Access URLs ===
+          Prometheus:  http://<10.0.48.155>:9090
+          Grafana:     http://<10.0.48.155>:3000 (admin/admin)
+          Alertmanager: http://<10.0.48.155>:9093
+
+          === Grafana Setup ===
+          1. Login Grafana → Add Data Source → Prometheus
+          2. URL: http://prometheus:9090
+          3. Import Dashboards: 1860 (Node), 14282 (Docker), 4912 (PHP-FPM)

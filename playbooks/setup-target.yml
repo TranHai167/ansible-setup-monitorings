@@ -1,0 +1,59 @@
+---
+# Playbook: Cài exporters lên EC2 target (Account B / target servers)
+# Usage: ansible-playbook playbooks/setup-target.yml
+- name: Setup monitoring exporters on target EC2
+  hosts: target_servers
+  become: true
+  gather_facts: true
+
+  vars:
+    # Override defaults nếu cần:
+    # phpfpm_scrape_uri: "unix:///var/run/php/php-fpm.sock;/status"
+    # phpfpm_pool_config: "/etc/php/8.3/fpm/pool.d/www.conf"
+
+  pre_tasks:
+    - name: Update apt cache
+      apt:
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Install required packages
+      apt:
+        name:
+          - python3-docker  # Cần cho ansible docker_container module
+        state: present
+
+  roles:
+    - node_exporter
+    - cadvisor
+    - phpfpm_exporter
+
+  post_tasks:
+    - name: Verify node_exporter is running
+      uri:
+        url: http://localhost:9100/metrics
+        return_content: false
+      register: node_check
+      ignore_errors: true
+
+    - name: Verify cAdvisor is running
+      uri:
+        url: http://localhost:8080/metrics
+        return_content: false
+      register: cadvisor_check
+      ignore_errors: true
+
+    - name: Verify php-fpm_exporter is running
+      uri:
+        url: http://localhost:9253/metrics
+        return_content: false
+      register: phpfpm_check
+      ignore_errors: true
+
+    - name: Show status summary
+      debug:
+        msg: |
+          === Exporter Status ===
+          node_exporter  (9100): {{ 'OK' if node_check is success else 'FAILED' }}
+          cAdvisor       (8080): {{ 'OK' if cadvisor_check is success else 'FAILED' }}
+          php-fpm_export (9253): {{ 'OK' if phpfpm_check is success else 'FAILED' }}
