@@ -8,19 +8,21 @@
 
   vars:
     # IP của EC2 target - PHẢI truyền vào khi chạy
-    target_ip: ""
+    target_ip: "{{ lookup('env', 'TARGET_IP') }}"
     monitoring_base_dir: /opt/monitoring
 
     # AWS SES SMTP credentials - truyền vào khi chạy hoặc dùng vault
     # Tạo SMTP credentials tại: AWS Console → SES → SMTP Settings → Create SMTP Credentials
     ses_smtp_username: "{{ lookup('env', 'SES_SMTP_USERNAME') }}"
     ses_smtp_password: "{{ lookup('env', 'SES_SMTP_PASSWORD') }}"
+    alert_from_email: "{{ lookup('env', 'FROM_EMAIL') | default('cloudtrail@sts.vn', true) }}"
+    alert_to_email: "{{ lookup('env', 'TO_EMAIL') | default('awscloudtraillogs@sts.vn', true) }}"
 
   pre_tasks:
     - name: Fail if target_ip not set
       fail:
         msg: "Bạn cần truyền target_ip. Ví dụ: -e 'target_ip=10.0.1.100'"
-      when: target_ip == ""
+      when: target_ip | length == 0
 
     - name: Install Docker (Amazon Linux)
       dnf:
@@ -176,8 +178,8 @@
           receivers:
             - name: "ses-email"
               email_configs:
-                - to: "awscloudtraillogs@sts.vn"
-                  from: "cloudtrail@sts.vn"
+                - to: "{{ alert_to_email }}"
+                  from: "{{ alert_from_email }}"
                   smarthost: "email-smtp.ap-southeast-1.amazonaws.com:587"
                   auth_username: "{{ ses_smtp_username }}"
                   auth_password: "{{ ses_smtp_password }}"

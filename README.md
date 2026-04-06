@@ -1,42 +1,45 @@
 # Monitoring Setup - Ansible + Docker
 
+Ansible playbooks để deploy monitoring stack (Prometheus + Grafana + Alertmanager) và exporters lên EC2 qua SSM.
+
 ## Cấu trúc
 
 ```
-monitoring-setup/
+├── .env.example               # Template biến môi trường
+├── .env                       # Biến môi trường (git ignored)
 ├── ansible.cfg
 ├── inventory/
-│   └── hosts.yml              # Inventory với SSM connection
+│   └── hosts.yml              # Inventory - SSM connection
 ├── playbooks/
 │   ├── setup-target.yml       # Cài exporters lên EC2 target (Ubuntu)
-│   └── setup-monitoring.yml   # Cài Prometheus+Grafana+Alertmanager (Amazon Linux 2023)
+│   └── setup-monitoring.yml   # Cài monitoring stack lên EC2 (Amazon Linux 2023)
 └── roles/
-    ├── node_exporter/         # Host metrics (CPU, RAM, Disk)
-    ├── cadvisor/              # Docker container metrics
-    └── phpfpm_exporter/       # PHP-FPM metrics
+    ├── node_exporter/         # CPU, RAM, Disk metrics (:9100)
+    ├── cadvisor/              # Docker container metrics (:8080)
+    └── phpfpm_exporter/       # PHP-FPM metrics (:9253)
 ```
 
 ## Prerequisites
 
+Chạy trên Ubuntu WSL:
+
 ```bash
-# Cài Ansible + dependencies
+# Ansible + dependencies
 sudo apt install python3-pip python3-boto3 -y
 pip install ansible
-# Hoặc: sudo apt install ansible
 
-# Cài SSM connection plugin
+# SSM connection plugin
 ansible-galaxy collection install community.aws
 
-# Cài AWS Session Manager Plugin
+# AWS Session Manager Plugin
 curl "https://s3.amazonaws.com/session-manager-downloads/plugin/latest/ubuntu_64bit/session-manager-plugin.deb" -o /tmp/session-manager-plugin.deb
 sudo dpkg -i /tmp/session-manager-plugin.deb
 rm /tmp/session-manager-plugin.deb
 ```
 
-### Kiểm tra điều kiện tiên quyết
+Verify:
 
 ```bash
-python3 --version
 ansible --version
 python3 -c "import boto3; print(boto3.__version__)"
 ansible-galaxy collection list | grep community.aws
@@ -44,15 +47,31 @@ session-manager-plugin --version
 aws sts get-caller-identity
 ```
 
-## Lưu ý quan trọng
+## Cấu hình
 
-- Thư mục project nằm trên `/mnt/c/...` (WSL mount) là world-writable, Ansible sẽ bỏ qua `ansible.cfg`.
-  Luôn chạy với prefix: `ANSIBLE_CONFIG=./ansible.cfg` hoặc `export ANSIBLE_CONFIG=./ansible.cfg` trước.
-- EC2 target: **Ubuntu** (dùng apt)
-- EC2 monitoring: **Amazon Linux 2023** (dùng dnf)
-- Cần cấu hình `ansible_aws_ssm_bucket_name` trong `inventory/hosts.yml` với tên S3 bucket thực tế.
+1. Copy `.env.example` → `.env` và điền thông tin:
+
+```bash
+cp .env.example .env
+```
+
+```env
+SES_SMTP_USERNAME=           # AWS SES SMTP credentials
+SES_SMTP_PASSWORD=
+FROM_EMAIL=cloudtrail@sts.vn
+TO_EMAIL=awscloudtraillogs@sts.vn
+TARGET_IP=10.0.3.130         # Private IP của EC2 target
+```
+
+2. Sửa `inventory/hosts.yml`:
+   - `ansible_aws_ssm_instance_id`: Instance ID của các EC2
+   - `ansible_aws_ssm_bucket_name`: Tên S3 bucket cho SSM file transfer
+   - `ansible_aws_ssm_region`: Region
 
 ## Cách chạy
+
+> **Lưu ý WSL**: Thư mục `/mnt/c/...` là world-writable nên Ansible bỏ qua `ansible.cfg`.
+> Luôn thêm `ANSIBLE_CONFIG=./ansible.cfg` hoặc chạy `export ANSIBLE_CONFIG=./ansible.cfg` trước.
 
 ### Bước 1: Cài exporters lên EC2 target
 
@@ -60,60 +79,54 @@ aws sts get-caller-identity
 ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/setup-target.yml
 ```
 
-Override php-fpm config nếu cần:
+### Bước 2: Cài monitoring stack
 
 ```bash
-ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/setup-target.yml \
-  -e 'phpfpm_scrape_uri="unix:///var/run/php/php-fpm.sock;/status"' \
-  -e 'phpfpm_pool_config=/etc/php/8.3/fpm/pool.d/www.conf'
+source .env && ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/setup-monitoring.yml
 ```
 
-### Bước 2: Cài monitoring stack lên EC2 monitoring
+### Bước 3: Verify
 
-```bash
-# Thay 10.0.3.130 bằng private IP thực của EC2 target
-ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/setup-monitoring.yml \
-  -e 'target_ip=10.0.3.130'
-```
-
-Nếu dùng Alertmanager gửi email qua SES:
-
-```bash
-export SES_SMTP_USERNAME="your_ses_smtp_user"
-export SES_SMTP_PASSWORD="your_ses_smtp_pass"
-```
-
-### Bước 3: Verify trên EC2 target
+Trên EC2 target:
 
 ```bash
 sudo ss -tlnp | grep -E ':(9100|8080|9253)'
-curl -s http://localhost:9100/metrics | head -5
-curl -s http://localhost:8080/metrics | head -5
 curl -s http://localhost:9253/metrics | grep phpfpm_up
+```
+
+Trên EC2 monitoring:
+
+```bash
+docker ps
+curl -s http://localhost:9090/-/healthy
+curl -s http://localhost:3000/api/health
 ```
 
 ### Bước 4: Truy cập Grafana
 
-1. Mở `http://<MONITORING_EC2_IP>:3000`
-2. Login: `admin` / `admin`
-3. Add Data Source → Prometheus → URL: `http://prometheus:9090`
-4. Import Dashboard:
-   - ID `1860` → Node Exporter Full
-   - ID `14282` → cAdvisor Docker
-   - ID `4912` → PHP-FPM
+1. Mở `http://<MONITORING_EC2_IP>:3000` — login `admin` / `admin`
+2. Add Data Source → Prometheus → URL: `http://prometheus:9090`
+3. Import Dashboard:
+   - `1860` — Node Exporter Full
+   - `14282` — cAdvisor Docker
+   - `4912` — PHP-FPM
 
-## Security Groups cần mở
+## Security Groups
 
-### EC2 Target
-| Port | Source | Service |
-|------|--------|---------|
-| 9100 | Monitoring EC2 SG | node_exporter |
-| 8080 | Monitoring EC2 SG | cAdvisor |
-| 9253 | Monitoring EC2 SG | php-fpm_exporter |
+| EC2 | Port | Source | Service |
+|-----|------|--------|---------|
+| Target | 9100 | Monitoring SG | node_exporter |
+| Target | 8080 | Monitoring SG | cAdvisor |
+| Target | 9253 | Monitoring SG | php-fpm_exporter |
+| Monitoring | 9090 | Your IP / VPN | Prometheus |
+| Monitoring | 3000 | ALB SG / Your IP | Grafana |
+| Monitoring | 9093 | Your IP / VPN | Alertmanager |
 
-### EC2 Monitoring
-| Port | Source | Service |
-|------|--------|---------|
-| 9090 | Your IP | Prometheus |
-| 3000 | Your IP | Grafana |
-| 9093 | Your IP | Alertmanager |
+## Metrics Retention
+
+Prometheus giữ metrics tối đa 7 ngày hoặc 15GB (cái nào chạm trước thì xóa). Cấu hình trong `setup-monitoring.yml`:
+
+```yaml
+- '--storage.tsdb.retention.time=7d'
+- '--storage.tsdb.retention.size=15GB'
+```
