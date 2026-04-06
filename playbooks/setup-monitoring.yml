@@ -22,14 +22,30 @@
         msg: "Bạn cần truyền target_ip. Ví dụ: -e 'target_ip=10.0.1.100'"
       when: target_ip == ""
 
-    - name: Install required packages
-      apt:
+    - name: Install Docker (Amazon Linux)
+      dnf:
         name:
-          - docker.io
-          - docker-compose-v2
-          - python3-docker
+          - docker
         state: present
-        update_cache: true
+
+    - name: Install docker-compose plugin
+      shell: |
+        mkdir -p /usr/local/lib/docker/cli-plugins
+        curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
+        chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
+      args:
+        creates: /usr/local/lib/docker/cli-plugins/docker-compose
+
+    - name: Install python3-pip and docker SDK
+      dnf:
+        name:
+          - python3-pip
+        state: present
+
+    - name: Install docker Python SDK
+      pip:
+        name: docker
+        state: present
 
     - name: Start Docker service
       systemd:
