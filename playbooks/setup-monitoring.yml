@@ -8,7 +8,7 @@
 
   vars:
     # IP của EC2 target - PHẢI truyền vào khi chạy
-    target_ip: "10.0.3.130"
+    target_ip: ""
     monitoring_base_dir: /opt/monitoring
 
     # AWS SES SMTP credentials - truyền vào khi chạy hoặc dùng vault
@@ -20,7 +20,7 @@
     - name: Fail if target_ip not set
       fail:
         msg: "Bạn cần truyền target_ip. Ví dụ: -e 'target_ip=10.0.1.100'"
-      when: target_ip == "10.0.3.130"
+      when: target_ip == ""
 
     - name: Install required packages
       apt:

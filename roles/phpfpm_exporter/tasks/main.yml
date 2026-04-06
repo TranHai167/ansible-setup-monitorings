@@ -19,6 +19,9 @@
   notify: restart php-fpm
   ignore_errors: true
 
+- name: Flush handlers to restart php-fpm before starting exporter
+  meta: flush_handlers
+
 - name: Check if php-fpm_exporter is installed
   stat:
     path: /usr/local/bin/php-fpm_exporter
