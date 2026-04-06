@@ -24,9 +24,9 @@
         state: present
 
   roles:
-    - node_exporter
-    - cadvisor
-    - phpfpm_exporter
+    - { role: node_exporter, tags: ['node_exporter'] }
+    - { role: cadvisor, tags: ['cadvisor'] }
+    - { role: phpfpm_exporter, tags: ['phpfpm_exporter'], when: install_phpfpm_exporter | default(false) }
 
   post_tasks:
     - name: Verify node_exporter is running
