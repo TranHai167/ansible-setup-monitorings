@@ -1,0 +1,10 @@
+---
+- name: restart php-fpm
+  shell: systemctl restart php*-fpm
+  ignore_errors: true
+
+- name: restart php-fpm_exporter
+  systemd:
+    name: php-fpm_exporter
+    state: restarted
+    daemon_reload: true

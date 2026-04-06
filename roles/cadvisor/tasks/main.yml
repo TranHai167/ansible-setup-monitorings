@@ -1,0 +1,33 @@
+---
+- name: Check if Docker is installed
+  command: docker --version
+  register: docker_check
+  ignore_errors: true
+  changed_when: false
+
+- name: Fail if Docker is not installed
+  fail:
+    msg: "Docker is not installed on this host. Please install Docker first."
+  when: docker_check.rc != 0
+
+- name: Stop existing cAdvisor container (if any)
+  docker_container:
+    name: cadvisor
+    state: absent
+  ignore_errors: true
+
+- name: Run cAdvisor container
+  docker_container:
+    name: cadvisor
+    image: "gcr.io/cadvisor/cadvisor:{{ cadvisor_version }}"
+    state: started
+    restart_policy: always
+    ports:
+      - "{{ cadvisor_port }}:8080"
+    volumes:
+      - /:/rootfs:ro
+      - /var/run:/var/run:ro
+      - /sys:/sys:ro
+      - /var/lib/docker/:/var/lib/docker:ro
+      - /dev/disk/:/dev/disk:ro
+    privileged: true
