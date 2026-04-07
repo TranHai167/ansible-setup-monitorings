@@ -205,7 +205,7 @@
                     summary: "Container {{ '{{' }} $labels.name {{ '}}' }} CPU > 80%"
 
                 - alert: ContainerHighMemory
-                  expr: container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes * 100 > 85
+                  expr: (container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes{name!=""} * 100 > 85) and container_spec_memory_limit_bytes{name!=""} > 0
                   for: 5m
                   labels:
                     severity: warning
