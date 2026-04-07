@@ -11,12 +11,12 @@ route:
 receivers:
   - name: "email"
     email_configs:
-      - to: "{{ alert_to_email }}"
-        from: "{{ alert_from_email }}"
-        smarthost: "{{ smtp_host }}:{{ smtp_port }}"
-        auth_username: "{{ smtp_user }}"
-        auth_password: "{{ smtp_password }}"
-        auth_identity: "{{ smtp_user }}"
+      - to: '{{ alert_to_email }}'
+        from: '{{ alert_from_email }}'
+        smarthost: '{{ smtp_host }}:{{ smtp_port }}'
+        auth_username: '{{ smtp_user }}'
+        auth_password: '{{ smtp_password }}'
+        auth_identity: '{{ smtp_user }}'
         require_tls: true
         send_resolved: true
         headers:
