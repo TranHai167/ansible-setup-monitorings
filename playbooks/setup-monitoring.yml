@@ -188,13 +188,13 @@
 
             - name: docker_alerts
               rules:
-                - alert: ContainerDown
-                  expr: absent(container_last_seen{name!=""})
+                - alert: ContainerNotRunning
+                  expr: (time() - container_last_seen{name!="",name!~"cadvisor"}) > 120
                   for: 1m
                   labels:
                     severity: critical
                   annotations:
-                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} is DOWN"
+                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} is not running on {{ '{{' }} $labels.instance {{ '}}' }}"
 
                 - alert: ContainerHighCPU
                   expr: rate(container_cpu_usage_seconds_total{name!=""}[5m]) * 100 > 80
