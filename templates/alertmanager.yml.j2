@@ -20,4 +20,4 @@ receivers:
         require_tls: true
         send_resolved: true
         headers:
-          Subject: '{% raw %}[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }} - {{ .CommonLabels.instance_name | default "unknown" }}{% endraw %}'
+          Subject: '{% raw %}[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}{% endraw %}'
