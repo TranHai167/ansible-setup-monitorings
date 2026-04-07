@@ -3,10 +3,12 @@ Description=Prometheus Node Exporter
 After=network.target
 
 [Service]
-User=node_exporter
-Group=node_exporter
+User=root
+Group=root
 Type=simple
-ExecStart=/usr/local/bin/node_exporter
+ExecStart=/usr/local/bin/node_exporter \
+    --collector.systemd \
+    --collector.processes
 Restart=always
 RestartSec=5
 
