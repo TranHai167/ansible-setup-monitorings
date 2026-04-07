@@ -23,6 +23,12 @@ Ansible playbooks để deploy monitoring stack (Prometheus + Grafana + Alertman
 
 Chạy trên Ubuntu WSL:
 
+Lưu ý: move to correct directory:
+
+```bash
+cd "/mnt/c/your_local_path"
+```
+
 ```bash
 # Ansible + dependencies
 sudo apt install python3-pip python3-boto3 -y
