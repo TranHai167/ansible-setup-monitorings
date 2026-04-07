@@ -136,3 +136,40 @@ Prometheus giữ metrics tối đa 7 ngày hoặc 15GB (cái nào chạm trướ
 - '--storage.tsdb.retention.time=7d'
 - '--storage.tsdb.retention.size=15GB'
 ```
+
+If format in env is incorrect, use:
+
+``` bash
+sed -i 's/\r$//' .env
+```
+
+If format can not process, fix this content:
+
+```bash
+
+cat > /opt/monitoring/alertmanager/alertmanager.yml << 'EOF'
+route:
+  receiver: email
+  group_wait: 30s
+  group_interval: 5m
+  repeat_interval: 4h
+  routes:
+    - match:
+        severity: critical
+      repeat_interval: 1h
+receivers:
+  - name: email
+    email_configs:
+      - to: "haitn2@sts.vn, cuongph@sts.vn"
+        from: "no_reply_test@sts.vn"
+        smarthost: smtp.office365.com:587
+        auth_username: "no_reply_test@sts.vn"
+        auth_password: "Xuw76289"
+        auth_identity: "no_reply_test@sts.vn"
+        require_tls: true
+        send_resolved: true
+        headers:
+          Subject: '[{{ .Status | toUpper }}] {{ .GroupLabels.alertname }}'
+EOF
+
+```

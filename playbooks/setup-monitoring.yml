@@ -213,8 +213,8 @@
                     summary: "Container {{ '{{' }} $labels.name {{ '}}' }} Memory > 85%"
 
                 - alert: ContainerRestarting
-                  expr: increase(container_last_seen{name!=""}[10m]) > 2
-                  for: 5m
+                  expr: changes(container_start_time_seconds{name!=""}[10m]) > 1
+                  for: 1m
                   labels:
                     severity: warning
                   annotations:
@@ -272,10 +272,32 @@
                     summary: "PHP-FPM running nhưng không có active process"
 
     - name: Create Alertmanager config
-      template:
-        src: "../templates/alertmanager.yml.j2"
+      copy:
         dest: "{{ monitoring_base_dir }}/alertmanager/alertmanager.yml"
         mode: "0644"
+        content: |
+          route:
+            receiver: email
+            group_wait: 30s
+            group_interval: 5m
+            repeat_interval: 4h
+            routes:
+              - match:
+                  severity: critical
+                repeat_interval: 1h
+          receivers:
+            - name: email
+              email_configs:
+                - to: {{ alert_to_email | to_json }}
+                  from: {{ alert_from_email | to_json }}
+                  smarthost: {{ (smtp_host ~ ':' ~ smtp_port) | to_json }}
+                  auth_username: {{ smtp_user | to_json }}
+                  auth_password: {{ smtp_password | to_json }}
+                  auth_identity: {{ smtp_user | to_json }}
+                  require_tls: true
+                  send_resolved: true
+                  headers:
+                    Subject: '{{ "{{" }} .Status | toUpper {{ "}}" }}] {{ "{{" }} .GroupLabels.alertname {{ "}}" }}'
 
     - name: Create Docker Compose file
       copy:
