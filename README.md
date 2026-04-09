@@ -191,3 +191,8 @@ Gỡ monitoring stack (Prometheus, Grafana, Alertmanager):
 ```
 source .env && AWS_PROFILE=magento-conf ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/cleanup-monitoring.yml
 ```
+
+Allow ufw rule for node_exporter port:
+```
+sudo ufw allow 9100/tcp
+```
