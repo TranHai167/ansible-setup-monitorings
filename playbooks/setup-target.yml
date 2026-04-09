@@ -49,6 +49,7 @@
         return_content: false
       register: phpfpm_check
       ignore_errors: true
+      when: install_phpfpm_exporter | default(false) | bool
 
     - name: Show status summary
       debug:
@@ -56,4 +57,4 @@
           === Exporter Status ===
           node_exporter  (9100): {{ 'OK' if node_check is success else 'FAILED' }}
           cAdvisor       (8080): {{ 'OK' if cadvisor_check is success else 'FAILED' }}
-          php-fpm_export (9253): {{ 'OK' if phpfpm_check is success else 'FAILED' }}
+          php-fpm_export (9253): {{ 'OK' if phpfpm_check is success else 'SKIPPED (not installed)' if phpfpm_check is skipped else 'FAILED' }}
