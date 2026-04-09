@@ -164,13 +164,22 @@
             - name: target_health
               rules:
                 - alert: TargetDown
-                  expr: up == 0
+                  expr: up{job!="phpfpm"} == 0
                   for: 1m
                   labels:
                     severity: critical
                   annotations:
                     summary: "{{ '{{' }} $labels.job {{ '}}' }} on {{ '{{' }} $labels.instance_name {{ '}}' }} ({{ '{{' }} $labels.instance {{ '}}' }}) is DOWN"
                     description: "Exporter {{ '{{' }} $labels.job {{ '}}' }} trên {{ '{{' }} $labels.instance_name {{ '}}' }} không scrape được."
+
+                - alert: PHPFPMTargetDown
+                  expr: up{job="phpfpm"} == 0
+                  for: 1m
+                  labels:
+                    severity: critical
+                  annotations:
+                    summary: "phpfpm on {{ '{{' }} $labels.instance_name {{ '}}' }} ({{ '{{' }} $labels.instance {{ '}}' }}) is DOWN"
+                    description: "PHP-FPM exporter trên {{ '{{' }} $labels.instance_name {{ '}}' }} không scrape được."
 
                 - alert: NodeExporterDown
                   expr: absent(up{job="node-exporter"} == 1)

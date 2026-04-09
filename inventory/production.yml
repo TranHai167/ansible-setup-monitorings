@@ -1,0 +1,23 @@
+# Inventory UAT environment
+all:
+  vars:
+    ansible_connection: aws_ssm
+    ansible_aws_ssm_region: ap-southeast-1
+    ansible_aws_ssm_bucket_name: "ansible-ssm-sts-2026"
+
+  children:
+    monitoring_server:
+      hosts:
+        monitor-ec2:
+          ansible_aws_ssm_instance_id: i-0a8e1d26b3f31cc0e
+
+    target_servers:
+      hosts:
+        target-ec2-ts-oms:
+          ansible_aws_ssm_instance_id: i-056d7d119373fd7c3
+          private_ip: "20.10.11.56"
+          install_phpfpm_exporter: false
+        target-ec2-TS-M247-Prod:
+          ansible_aws_ssm_instance_id: i-006f4edb282a8e84d
+          private_ip: "20.10.2.121"
+          install_phpfpm_exporter: true
