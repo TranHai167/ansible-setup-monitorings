@@ -1,14 +1,13 @@
 ---
 # Playbook: Cài Prometheus + Grafana + Alertmanager bằng Docker trên EC2 monitoring
-# Usage: ansible-playbook playbooks/setup-monitoring.yml -e "target_ip=<PRIVATE_IP_OF_TARGET_EC2>"
+# Usage: ansible-playbook playbooks/setup-monitoring.yml
+# Không cần truyền target_ip nữa - tự lấy từ inventory target_servers
 - name: Setup monitoring stack on EC2 (Docker)
   hosts: monitoring_server
   become: true
   gather_facts: true
 
   vars:
-    # IP của EC2 target - PHẢI truyền vào khi chạy
-    target_ip: "{{ lookup('env', 'TARGET_IP') }}"
     monitoring_base_dir: /opt/monitoring
 
     # SMTP credentials
@@ -20,10 +19,10 @@
     alert_to_email: "{{ lookup('env', 'TO_EMAIL') }}"
 
   pre_tasks:
-    - name: Fail if target_ip not set
+    - name: Fail if no target servers defined
       fail:
-        msg: "Bạn cần truyền target_ip. Ví dụ: -e 'target_ip=10.0.1.100'"
-      when: target_ip | length == 0
+        msg: "Không có target server nào trong inventory group 'target_servers'"
+      when: groups['target_servers'] | default([]) | length == 0
 
     - name: Install Docker (Amazon Linux)
       dnf:
@@ -69,7 +68,7 @@
         - "{{ monitoring_base_dir }}/grafana"
 
   tasks:
-    - name: Create Prometheus config
+    - name: Create Prometheus config (multi-target)
       copy:
         dest: "{{ monitoring_base_dir }}/prometheus/prometheus.yml"
         mode: "0644"
@@ -93,21 +92,27 @@
 
             - job_name: "node-exporter"
               static_configs:
-                - targets: ["{{ target_ip }}:9100"]
+          {% for host in groups['target_servers'] %}
+                - targets: ["{{ hostvars[host].private_ip }}:9100"]
                   labels:
-                    instance_name: "target-ec2"
+                    instance_name: "{{ host }}"
+          {% endfor %}
 
             - job_name: "cadvisor"
               static_configs:
-                - targets: ["{{ target_ip }}:8080"]
+          {% for host in groups['target_servers'] %}
+                - targets: ["{{ hostvars[host].private_ip }}:8080"]
                   labels:
-                    instance_name: "target-ec2"
+                    instance_name: "{{ host }}"
+          {% endfor %}
 
             - job_name: "phpfpm"
               static_configs:
-                - targets: ["{{ target_ip }}:9253"]
+          {% for host in groups['target_servers'] if hostvars[host].install_phpfpm_exporter | default(false) %}
+                - targets: ["{{ hostvars[host].private_ip }}:9253"]
                   labels:
-                    instance_name: "target-ec2"
+                    instance_name: "{{ host }}"
+          {% endfor %}
 
     - name: Create Prometheus alert rules
       copy:
@@ -123,8 +128,8 @@
                   labels:
                     severity: critical
                   annotations:
-                    summary: "{{ '{{' }} $labels.job {{ '}}' }} on {{ '{{' }} $labels.instance {{ '}}' }} is DOWN"
-                    description: "Exporter {{ '{{' }} $labels.job {{ '}}' }} không scrape được, service có thể đã chết."
+                    summary: "{{ '{{' }} $labels.job {{ '}}' }} on {{ '{{' }} $labels.instance_name {{ '}}' }} ({{ '{{' }} $labels.instance {{ '}}' }}) is DOWN"
+                    description: "Exporter {{ '{{' }} $labels.job {{ '}}' }} trên {{ '{{' }} $labels.instance_name {{ '}}' }} không scrape được."
 
                 - alert: NodeExporterDown
                   expr: absent(up{job="node-exporter"} == 1)
@@ -137,12 +142,12 @@
             - name: host_alerts
               rules:
                 - alert: HighCPU
-                  expr: 100 - (avg by(instance) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
+                  expr: 100 - (avg by(instance, instance_name) (rate(node_cpu_seconds_total{mode="idle"}[5m])) * 100) > 80
                   for: 5m
                   labels:
                     severity: warning
                   annotations:
-                    summary: "CPU > 80% on {{ '{{' }} $labels.instance {{ '}}' }}"
+                    summary: "CPU > 80% on {{ '{{' }} $labels.instance_name {{ '}}' }}"
                     description: "CPU usage: {{ '{{' }} $value | printf \"%.1f\" {{ '}}' }}%"
 
                 - alert: HighMemory
@@ -151,7 +156,7 @@
                   labels:
                     severity: warning
                   annotations:
-                    summary: "Memory > 85% on {{ '{{' }} $labels.instance {{ '}}' }}"
+                    summary: "Memory > 85% on {{ '{{' }} $labels.instance_name {{ '}}' }}"
                     description: "Memory usage: {{ '{{' }} $value | printf \"%.1f\" {{ '}}' }}%"
 
                 - alert: DiskSpaceLow
@@ -160,7 +165,7 @@
                   labels:
                     severity: critical
                   annotations:
-                    summary: "Disk > 85% on {{ '{{' }} $labels.instance {{ '}}' }} ({{ '{{' }} $labels.mountpoint {{ '}}' }})"
+                    summary: "Disk > 85% on {{ '{{' }} $labels.instance_name {{ '}}' }} ({{ '{{' }} $labels.mountpoint {{ '}}' }})"
 
                 - alert: HighDiskIO
                   expr: rate(node_disk_io_time_seconds_total[5m]) > 0.9
@@ -168,7 +173,7 @@
                   labels:
                     severity: warning
                   annotations:
-                    summary: "Disk I/O saturated on {{ '{{' }} $labels.instance {{ '}}' }}"
+                    summary: "Disk I/O saturated on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
                 - alert: HighNetworkTraffic
                   expr: rate(node_network_receive_bytes_total{device!~"lo|veth.*|docker.*|br-.*"}[5m]) > 100000000
@@ -176,7 +181,7 @@
                   labels:
                     severity: warning
                   annotations:
-                    summary: "Network receive > 100MB/s on {{ '{{' }} $labels.instance {{ '}}' }}"
+                    summary: "Network receive > 100MB/s on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
                 - alert: SystemdServiceFailed
                   expr: node_systemd_unit_state{state="failed"} == 1
@@ -184,7 +189,7 @@
                   labels:
                     severity: critical
                   annotations:
-                    summary: "Systemd service {{ '{{' }} $labels.name {{ '}}' }} FAILED on {{ '{{' }} $labels.instance {{ '}}' }}"
+                    summary: "Systemd service {{ '{{' }} $labels.name {{ '}}' }} FAILED on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
             - name: docker_alerts
               rules:
@@ -194,7 +199,7 @@
                   labels:
                     severity: critical
                   annotations:
-                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} is not running on {{ '{{' }} $labels.instance {{ '}}' }}"
+                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} not running on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
                 - alert: ContainerHighCPU
                   expr: rate(container_cpu_usage_seconds_total{name!=""}[5m]) * 100 > 80
@@ -202,7 +207,7 @@
                   labels:
                     severity: warning
                   annotations:
-                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} CPU > 80%"
+                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} CPU > 80% on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
                 - alert: ContainerHighMemory
                   expr: (container_memory_usage_bytes{name!=""} / container_spec_memory_limit_bytes{name!=""} * 100 > 85) and container_spec_memory_limit_bytes{name!=""} > 0
@@ -210,7 +215,7 @@
                   labels:
                     severity: warning
                   annotations:
-                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} Memory > 85%"
+                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} Memory > 85% on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
                 - alert: ContainerRestarting
                   expr: changes(container_start_time_seconds{name!=""}[10m]) > 1
@@ -218,7 +223,7 @@
                   labels:
                     severity: warning
                   annotations:
-                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} is restarting frequently"
+                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} restarting frequently on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
                 - alert: ContainerOOMKilled
                   expr: container_oom_events_total{name!=""} > 0
@@ -226,7 +231,7 @@
                   labels:
                     severity: critical
                   annotations:
-                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} bị OOM Killed"
+                    summary: "Container {{ '{{' }} $labels.name {{ '}}' }} bị OOM Killed on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
             - name: phpfpm_alerts
               rules:
@@ -236,7 +241,7 @@
                   labels:
                     severity: critical
                   annotations:
-                    summary: "PHP-FPM is DOWN on {{ '{{' }} $labels.instance {{ '}}' }}"
+                    summary: "PHP-FPM is DOWN on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
                 - alert: PHPFPMQueueHigh
                   expr: phpfpm_listen_queue > 10
@@ -244,7 +249,7 @@
                   labels:
                     severity: warning
                   annotations:
-                    summary: "PHP-FPM queue > 10 on {{ '{{' }} $labels.instance {{ '}}' }}"
+                    summary: "PHP-FPM queue > 10 on {{ '{{' }} $labels.instance_name {{ '}}' }}"
                     description: "Queue length: {{ '{{' }} $value {{ '}}' }}"
 
                 - alert: PHPFPMMaxChildrenReached
@@ -253,7 +258,7 @@
                   labels:
                     severity: critical
                   annotations:
-                    summary: "PHP-FPM max children reached - cần tăng pm.max_children"
+                    summary: "PHP-FPM max children reached on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
                 - alert: PHPFPMSlowRequests
                   expr: rate(phpfpm_slow_requests[5m]) > 0
@@ -261,7 +266,7 @@
                   labels:
                     severity: warning
                   annotations:
-                    summary: "PHP-FPM có slow requests on {{ '{{' }} $labels.instance {{ '}}' }}"
+                    summary: "PHP-FPM có slow requests on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
                 - alert: PHPFPMNoActiveProcesses
                   expr: phpfpm_active_processes == 0 and phpfpm_up == 1
@@ -269,7 +274,7 @@
                   labels:
                     severity: warning
                   annotations:
-                    summary: "PHP-FPM running nhưng không có active process"
+                    summary: "PHP-FPM running nhưng không có active process on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
     - name: Create Alertmanager config
       copy:
@@ -281,6 +286,7 @@
             group_wait: 30s
             group_interval: 5m
             repeat_interval: 4h
+            group_by: ['alertname', 'instance_name']
             routes:
               - match:
                   severity: critical
@@ -297,7 +303,7 @@
                   require_tls: true
                   send_resolved: true
                   headers:
-                    Subject: '{{ "{{" }} .Status | toUpper {{ "}}" }}] {{ "{{" }} .GroupLabels.alertname {{ "}}" }}'
+                    Subject: '{{ "{{" }} .Status | toUpper {{ "}}" }}] {{ "{{" }} .GroupLabels.alertname {{ "}}" }} - {{ "{{" }} .GroupLabels.instance_name {{ "}}" }}'
 
     - name: Create Docker Compose file
       copy:
@@ -378,10 +384,10 @@
           Grafana     (3000): {{ 'OK' if grafana_check is success else 'FAILED' }}
           Alertmanager(9093): Running
 
-          === Access URLs ===
-          Prometheus:  http://<10.0.48.155>:9090
-          Grafana:     http://<10.0.48.155>:3000 (admin/admin)
-          Alertmanager: http://<10.0.48.155>:9093
+          === Monitored Targets ===
+          {% for host in groups['target_servers'] %}
+          - {{ host }}: {{ hostvars[host].private_ip }} (phpfpm: {{ hostvars[host].install_phpfpm_exporter | default(false) }})
+          {% endfor %}
 
           === Grafana Setup ===
           1. Login Grafana → Add Data Source → Prometheus
