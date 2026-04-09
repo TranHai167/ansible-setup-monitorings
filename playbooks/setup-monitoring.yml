@@ -24,32 +24,73 @@
         msg: "Không có target server nào trong inventory group 'target_servers'"
       when: groups['target_servers'] | default([]) | length == 0
 
-    - name: Install Docker (Amazon Linux)
-      dnf:
-        name:
-          - docker
+    # === Ubuntu/Debian ===
+    - name: "[Debian] Install Docker dependencies"
+      apt:
+        name: [ca-certificates, curl, gnupg]
         state: present
+        update_cache: true
+      when: ansible_os_family == "Debian"
 
-    - name: Install docker-compose plugin
+    - name: "[Debian] Add Docker GPG key"
+      shell: |
+        install -m 0755 -d /etc/apt/keyrings
+        curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+        chmod a+r /etc/apt/keyrings/docker.asc
+      args:
+        creates: /etc/apt/keyrings/docker.asc
+      when: ansible_os_family == "Debian"
+
+    - name: "[Debian] Add Docker repository"
+      shell: |
+        echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo "$VERSION_CODENAME") stable" > /etc/apt/sources.list.d/docker.list
+      args:
+        creates: /etc/apt/sources.list.d/docker.list
+      when: ansible_os_family == "Debian"
+
+    - name: "[Debian] Install Docker"
+      apt:
+        name: [docker-ce, docker-ce-cli, containerd.io, docker-compose-plugin]
+        state: present
+        update_cache: true
+      when: ansible_os_family == "Debian"
+
+    - name: "[Debian] Install python3-docker"
+      apt:
+        name: [python3-pip, python3-docker]
+        state: present
+      when: ansible_os_family == "Debian"
+
+    # === Amazon Linux / RHEL ===
+    - name: "[RedHat] Install Docker"
+      dnf:
+        name: [docker]
+        state: present
+      when: ansible_os_family == "RedHat"
+
+    - name: "[RedHat] Install docker-compose plugin"
       shell: |
         mkdir -p /usr/local/lib/docker/cli-plugins
         curl -SL "https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64" -o /usr/local/lib/docker/cli-plugins/docker-compose
         chmod +x /usr/local/lib/docker/cli-plugins/docker-compose
       args:
         creates: /usr/local/lib/docker/cli-plugins/docker-compose
+      when: ansible_os_family == "RedHat"
 
-    - name: Install python3-pip and docker SDK
+    - name: "[RedHat] Install python3-pip and docker SDK"
       dnf:
-        name:
-          - python3-pip
+        name: [python3-pip]
         state: present
+      when: ansible_os_family == "RedHat"
 
-    - name: Install docker Python SDK
+    - name: "[RedHat] Install docker Python SDK"
       pip:
         name: docker
         state: present
         extra_args: --user
+      when: ansible_os_family == "RedHat"
 
+    # === Common ===
     - name: Start Docker service
       systemd:
         name: docker

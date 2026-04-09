@@ -1,0 +1,71 @@
+---
+# Playbook: Gỡ tất cả exporters khỏi EC2 target
+# Usage: ansible-playbook playbooks/cleanup-target.yml
+# Chỉ gỡ exporter cụ thể: --tags node_exporter / cadvisor / phpfpm_exporter
+- name: Cleanup monitoring exporters on target EC2
+  hosts: target_servers
+  become: true
+  gather_facts: false
+
+  tasks:
+    # === Node Exporter ===
+    - name: Stop and disable node_exporter
+      systemd:
+        name: node_exporter
+        state: stopped
+        enabled: false
+      ignore_errors: true
+      tags: [node_exporter]
+
+    - name: Remove node_exporter service file
+      file:
+        path: /etc/systemd/system/node_exporter.service
+        state: absent
+      tags: [node_exporter]
+
+    - name: Remove node_exporter binary
+      file:
+        path: /usr/local/bin/node_exporter
+        state: absent
+      tags: [node_exporter]
+
+    - name: Remove node_exporter user
+      user:
+        name: node_exporter
+        state: absent
+        remove: true
+      tags: [node_exporter]
+
+    # === cAdvisor ===
+    - name: Stop and remove cAdvisor container
+      docker_container:
+        name: cadvisor
+        state: absent
+      ignore_errors: true
+      tags: [cadvisor]
+
+    # === PHP-FPM Exporter ===
+    - name: Stop and disable php-fpm_exporter
+      systemd:
+        name: php-fpm_exporter
+        state: stopped
+        enabled: false
+      ignore_errors: true
+      tags: [phpfpm_exporter]
+
+    - name: Remove php-fpm_exporter service file
+      file:
+        path: /etc/systemd/system/php-fpm_exporter.service
+        state: absent
+      tags: [phpfpm_exporter]
+
+    - name: Remove php-fpm_exporter binary
+      file:
+        path: /usr/local/bin/php-fpm_exporter
+        state: absent
+      tags: [phpfpm_exporter]
+
+    # === Reload systemd ===
+    - name: Reload systemd daemon
+      systemd:
+        daemon_reload: true

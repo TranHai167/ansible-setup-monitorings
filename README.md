@@ -173,3 +173,21 @@ receivers:
 EOF
 
 ```
+
+
+Gỡ exporter trên target EC2:
+
+```bash
+# Gỡ tất cả
+source .env && AWS_PROFILE=magento-conf ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/cleanup-target.yml
+
+# Chỉ gỡ 1 exporter cụ thể
+ansible-playbook playbooks/cleanup-target.yml --tags node_exporter
+ansible-playbook playbooks/cleanup-target.yml --tags cadvisor
+ansible-playbook playbooks/cleanup-target.yml --tags phpfpm_exporter
+```
+
+Gỡ monitoring stack (Prometheus, Grafana, Alertmanager):
+```
+source .env && AWS_PROFILE=magento-conf ANSIBLE_CONFIG=./ansible.cfg ansible-playbook playbooks/cleanup-monitoring.yml
+```

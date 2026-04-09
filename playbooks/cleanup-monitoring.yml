@@ -1,0 +1,22 @@
+---
+# Playbook: Gỡ Prometheus + Grafana + Alertmanager khỏi EC2 monitoring
+# Usage: ansible-playbook playbooks/cleanup-monitoring.yml
+- name: Cleanup monitoring stack on EC2
+  hosts: monitoring_server
+  become: true
+  gather_facts: false
+
+  vars:
+    monitoring_base_dir: /opt/monitoring
+
+  tasks:
+    - name: Stop and remove all containers
+      shell: docker compose down -v
+      args:
+        chdir: "{{ monitoring_base_dir }}"
+      ignore_errors: true
+
+    - name: Remove monitoring directory
+      file:
+        path: "{{ monitoring_base_dir }}"
+        state: absent
