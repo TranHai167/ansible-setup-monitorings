@@ -21,3 +21,7 @@ all:
           ansible_aws_ssm_instance_id: i-006f4edb282a8e84d
           private_ip: "20.10.2.121"
           install_phpfpm_exporter: true
+        target-ec2-TS-M247-Prod-2:
+          ansible_aws_ssm_instance_id: i-05d1e3c586f06a1d6
+          private_ip: "20.10.2.243"
+          install_phpfpm_exporter: true
