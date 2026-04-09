@@ -1,4 +1,8 @@
 ---
+- name: Set architecture variable
+  set_fact:
+    phpfpm_exporter_arch: "{{ 'arm64' if ansible_architecture == 'aarch64' else 'amd64' }}"
+
 - name: Check if php-fpm is running
   shell: 'pgrep -x php-fpm || pgrep -f "php-fpm: master"'
   register: phpfpm_check
