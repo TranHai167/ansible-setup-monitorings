@@ -21,10 +21,9 @@
     owner: root
     group: root
 
-- name: Setup cron to run metrics script every 5 minutes
+- name: Setup cron to run metrics script every minute
   cron:
     name: "magento_cron_metrics"
-    minute: "*/5"
     job: "{{ magento_cron_metrics_script }}"
     user: root
 

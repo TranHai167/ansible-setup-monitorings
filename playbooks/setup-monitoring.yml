@@ -289,7 +289,7 @@
             - name: magento_cron_alerts
               rules:
                 - alert: MagentoCronNotRunning
-                  expr: (time() - magento_cron_last_scrape_timestamp) > 600
+                  expr: (time() - magento_cron_last_scrape_timestamp) > 300
                   for: 2m
                   labels:
                     severity: critical
