@@ -17,7 +17,7 @@ scrape_configs:
 
   - job_name: "node-exporter"
     static_configs:
-{% for host in groups['target_servers'] %}
+{% for host in groups['target_servers'] if hostvars[host].install_node_exporter | default(true) | bool %}
       - targets: ["{{ hostvars[host].private_ip }}:9100"]
         labels:
           instance_name: "{{ host }}"
@@ -25,7 +25,7 @@ scrape_configs:
 
   - job_name: "cadvisor"
     static_configs:
-{% for host in groups['target_servers'] %}
+{% for host in groups['target_servers'] if hostvars[host].install_cadvisor | default(true) | bool %}
       - targets: ["{{ hostvars[host].private_ip }}:8080"]
         labels:
           instance_name: "{{ host }}"
