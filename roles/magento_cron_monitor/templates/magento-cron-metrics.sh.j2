@@ -1,0 +1,73 @@
+#!/bin/bash
+# Magento Cron Metrics Exporter for Prometheus node_exporter textfile collector
+METRICS_FILE="{{ textfile_collector_dir }}/magento_cron.prom"
+METRICS_TMP="${METRICS_FILE}.tmp"
+
+DB_HOST="{{ magento_db_host }}"
+DB_PORT="{{ magento_db_port }}"
+DB_USER="{{ magento_db_user }}"
+DB_PASS="{{ magento_db_password }}"
+DB_NAME="{{ magento_db_name }}"
+
+MYSQL_CMD="mysql -h $DB_HOST -P $DB_PORT -u $DB_USER -p$DB_PASS $DB_NAME -N --connect-timeout=5"
+
+# Đếm job theo status trong 5 phút gần nhất
+read success error missed pending running <<< $($MYSQL_CMD -e "
+SELECT
+  COALESCE(SUM(status='success'), 0),
+  COALESCE(SUM(status='error'), 0),
+  COALESCE(SUM(status='missed'), 0),
+  COALESCE(SUM(status='pending'), 0),
+  COALESCE(SUM(status='running'), 0)
+FROM cron_schedule
+WHERE scheduled_at >= NOW() - INTERVAL 5 MINUTE;
+" 2>/dev/null)
+
+# Nếu query fail thì ghi metric lỗi
+if [ $? -ne 0 ]; then
+  cat > "$METRICS_TMP" << EOF
+# HELP magento_cron_scrape_error Whether the last scrape had an error
+# TYPE magento_cron_scrape_error gauge
+magento_cron_scrape_error 1
+# HELP magento_cron_last_scrape_timestamp Last time this script ran
+# TYPE magento_cron_last_scrape_timestamp gauge
+magento_cron_last_scrape_timestamp $(date +%s)
+EOF
+  mv "$METRICS_TMP" "$METRICS_FILE"
+  exit 0
+fi
+
+cat > "$METRICS_TMP" << EOF
+# HELP magento_cron_jobs_total Magento cron jobs by status (last 5min)
+# TYPE magento_cron_jobs_total gauge
+magento_cron_jobs_total{status="success"} ${success:-0}
+magento_cron_jobs_total{status="error"} ${error:-0}
+magento_cron_jobs_total{status="missed"} ${missed:-0}
+magento_cron_jobs_total{status="pending"} ${pending:-0}
+magento_cron_jobs_total{status="running"} ${running:-0}
+# HELP magento_cron_scrape_error Whether the last scrape had an error
+# TYPE magento_cron_scrape_error gauge
+magento_cron_scrape_error 0
+# HELP magento_cron_last_scrape_timestamp Last time this script ran
+# TYPE magento_cron_last_scrape_timestamp gauge
+magento_cron_last_scrape_timestamp $(date +%s)
+EOF
+
+# Đếm job error trong 1 giờ gần nhất theo job_code
+error_jobs=$($MYSQL_CMD -e "
+SELECT job_code, COUNT(*) as cnt
+FROM cron_schedule
+WHERE status='error' AND executed_at >= NOW() - INTERVAL 1 HOUR
+GROUP BY job_code;
+" 2>/dev/null)
+
+if [ -n "$error_jobs" ]; then
+  echo "# HELP magento_cron_error_by_job Error count per job (last 1h)" >> "$METRICS_TMP"
+  echo "# TYPE magento_cron_error_by_job gauge" >> "$METRICS_TMP"
+  echo "$error_jobs" | while IFS=$'\t' read -r job_code cnt; do
+    echo "magento_cron_error_by_job{job_code=\"$job_code\"} $cnt" >> "$METRICS_TMP"
+  done
+fi
+
+# Atomic write
+mv "$METRICS_TMP" "$METRICS_FILE"

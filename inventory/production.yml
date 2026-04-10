@@ -25,3 +25,11 @@ all:
           ansible_aws_ssm_instance_id: i-05d1e3c586f06a1d6
           private_ip: "20.10.2.243"
           install_phpfpm_exporter: true
+        target-ec2-TS-Ecom-Gateway:
+          ansible_aws_ssm_instance_id: i-01667b110e973054c
+          private_ip: "20.10.2.125"
+        target-ec2-TS-M247-Cron:
+          ansible_aws_ssm_instance_id: i-0ae93a49a72bc8557
+          private_ip: "20.10.2.35"
+          install_magento_cron_monitor: true
+          install_cadvisor: false

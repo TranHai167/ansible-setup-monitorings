@@ -286,6 +286,43 @@
                   annotations:
                     summary: "PHP-FPM running nhưng không có active process on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
+            - name: magento_cron_alerts
+              rules:
+                - alert: MagentoCronNotRunning
+                  expr: (time() - magento_cron_last_scrape_timestamp) > 300
+                  for: 2m
+                  labels:
+                    severity: critical
+                  annotations:
+                    summary: "Magento cron metrics không chạy trên {{ '{{' }} $labels.instance_name {{ '}}' }}"
+                    description: "Script thu thập metrics cron đã không chạy hơn 5 phút."
+
+                - alert: MagentoCronScrapeError
+                  expr: magento_cron_scrape_error == 1
+                  for: 5m
+                  labels:
+                    severity: warning
+                  annotations:
+                    summary: "Magento cron metrics lỗi kết nối DB trên {{ '{{' }} $labels.instance_name {{ '}}' }}"
+
+                - alert: MagentoCronHighErrors
+                  expr: magento_cron_jobs_total{status="error"} > 5
+                  for: 5m
+                  labels:
+                    severity: warning
+                  annotations:
+                    summary: "Magento cron có nhiều job error trên {{ '{{' }} $labels.instance_name {{ '}}' }}"
+                    description: "Số job error trong 5 phút: {{ '{{' }} $value {{ '}}' }}"
+
+                - alert: MagentoCronJobError
+                  expr: magento_cron_error_by_job > 3
+                  for: 5m
+                  labels:
+                    severity: warning
+                  annotations:
+                    summary: "Magento cron job {{ '{{' }} $labels.job_code {{ '}}' }} lỗi nhiều trên {{ '{{' }} $labels.instance_name {{ '}}' }}"
+                    description: "Số lần lỗi trong 1h: {{ '{{' }} $value {{ '}}' }}"
+
     - name: Create Alertmanager config
       copy:
         dest: "{{ monitoring_base_dir }}/alertmanager/alertmanager.yml"

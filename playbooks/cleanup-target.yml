@@ -65,6 +65,33 @@
         state: absent
       tags: [phpfpm_exporter]
 
+    # === Magento Cron Monitor ===
+    - name: Remove magento cron metrics crontab
+      cron:
+        name: "magento_cron_metrics"
+        state: absent
+        user: root
+      ignore_errors: true
+      tags: [magento_cron_monitor]
+
+    - name: Remove magento cron metrics script
+      file:
+        path: /usr/local/bin/magento-cron-metrics.sh
+        state: absent
+      tags: [magento_cron_monitor]
+
+    - name: Remove magento cron metrics file
+      file:
+        path: /var/lib/node_exporter/textfile_collector/magento_cron.prom
+        state: absent
+      tags: [magento_cron_monitor]
+
+    - name: Remove magento cron logrotate
+      file:
+        path: /etc/logrotate.d/magento-cron
+        state: absent
+      tags: [magento_cron_monitor]
+
     # === Reload systemd ===
     - name: Reload systemd daemon
       systemd:

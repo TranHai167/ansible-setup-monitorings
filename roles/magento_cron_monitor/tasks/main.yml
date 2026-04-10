@@ -1,0 +1,42 @@
+---
+- name: Install mysql client
+  apt:
+    name: mysql-client
+    state: present
+  when: ansible_os_family == "Debian"
+
+- name: Create textfile collector directory
+  file:
+    path: "{{ textfile_collector_dir }}"
+    state: directory
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Deploy magento cron metrics script
+  template:
+    src: magento-cron-metrics.sh.j2
+    dest: "{{ magento_cron_metrics_script }}"
+    mode: "0755"
+    owner: root
+    group: root
+
+- name: Setup cron to run metrics script every minute
+  cron:
+    name: "magento_cron_metrics"
+    job: "{{ magento_cron_metrics_script }}"
+    user: root
+
+- name: Setup logrotate for magento cron log
+  copy:
+    dest: /etc/logrotate.d/magento-cron
+    mode: "0644"
+    content: |
+      /var/www/html/var/log/magento.cron.log {
+          weekly
+          rotate 4
+          compress
+          missingok
+          notifempty
+          create 0777 www-data www-data
+      }

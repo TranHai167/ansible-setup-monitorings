@@ -1,0 +1,13 @@
+---
+# DB credentials - đọc từ env
+magento_db_host: "{{ lookup('env', 'MAGENTO_DB_HOST') | default('localhost', true) }}"
+magento_db_port: "{{ lookup('env', 'MAGENTO_DB_PORT') | default('3306', true) }}"
+magento_db_user: "{{ lookup('env', 'MAGENTO_DB_USER') | default('root', true) }}"
+magento_db_password: "{{ lookup('env', 'MAGENTO_DB_PASSWORD') }}"
+magento_db_name: "{{ lookup('env', 'MAGENTO_DB_NAME') | default('magento', true) }}"
+
+# Textfile collector directory
+textfile_collector_dir: /var/lib/node_exporter/textfile_collector
+
+# Cron metrics script path
+magento_cron_metrics_script: /usr/local/bin/magento-cron-metrics.sh

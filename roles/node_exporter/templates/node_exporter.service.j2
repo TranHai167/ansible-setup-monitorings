@@ -8,7 +8,8 @@ Group=root
 Type=simple
 ExecStart=/usr/local/bin/node_exporter \
     --collector.systemd \
-    --collector.processes
+    --collector.processes \
+    --collector.textfile.directory=/var/lib/node_exporter/textfile_collector
 Restart=always
 RestartSec=5
 
