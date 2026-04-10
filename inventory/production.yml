@@ -28,6 +28,7 @@ all:
         target-ec2-TS-Ecom-Gateway:
           ansible_aws_ssm_instance_id: i-01667b110e973054c
           private_ip: "20.10.2.125"
+          cadvisor_version: "v0.51.0"
         target-ec2-TS-M247-Cron:
           ansible_aws_ssm_instance_id: i-0ae93a49a72bc8557
           private_ip: "20.10.2.35"
