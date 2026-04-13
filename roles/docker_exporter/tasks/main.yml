@@ -4,6 +4,18 @@
     name: jq
     state: present
 
+- name: Stop and remove cAdvisor container (replaced by textfile metrics)
+  docker_container:
+    name: cadvisor
+    state: absent
+  ignore_errors: true
+
+- name: Stop and remove docker_exporter container (if any)
+  docker_container:
+    name: docker_exporter
+    state: absent
+  ignore_errors: true
+
 - name: Ensure textfile collector directory exists
   file:
     path: "{{ docker_exporter_textfile_path }}"

@@ -124,13 +124,22 @@
             - name: target_health
               rules:
                 - alert: TargetDown
-                  expr: up{job!="phpfpm"} == 0
+                  expr: up{job!="phpfpm",job!="cadvisor"} == 0
                   for: 1m
                   labels:
                     severity: critical
                   annotations:
                     summary: "{{ '{{' }} $labels.job {{ '}}' }} on {{ '{{' }} $labels.instance_name {{ '}}' }} ({{ '{{' }} $labels.instance {{ '}}' }}) is DOWN"
                     description: "Exporter {{ '{{' }} $labels.job {{ '}}' }} trên {{ '{{' }} $labels.instance_name {{ '}}' }} không scrape được."
+
+                - alert: CAdvisorDown
+                  expr: up{job="cadvisor"} == 0
+                  for: 3m
+                  labels:
+                    severity: warning
+                  annotations:
+                    summary: "cAdvisor on {{ '{{' }} $labels.instance_name {{ '}}' }} ({{ '{{' }} $labels.instance {{ '}}' }}) is DOWN"
+                    description: "cAdvisor trên {{ '{{' }} $labels.instance_name {{ '}}' }} không scrape được."
 
                 - alert: PHPFPMTargetDown
                   expr: up{job="phpfpm"} == 0
@@ -204,7 +213,7 @@
             - name: docker_alerts
               rules:
                 - alert: ContainerNotRunning
-                  expr: (time() - container_last_seen{name!="",name!~"cadvisor"}) > 120
+                  expr: (time() - container_last_seen{name!="",name!~"cadvisor|docker_exporter"}) > 120
                   for: 1m
                   labels:
                     severity: critical
@@ -212,7 +221,10 @@
                     summary: "Container {{ '{{' }} $labels.name {{ '}}' }} not running on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
                 - alert: ContainerHighCPU
-                  expr: rate(container_cpu_usage_seconds_total{name!=""}[5m]) * 100 > 80
+                  expr: |
+                    (rate(container_cpu_usage_seconds_total{name!="",name!~"cadvisor"}[5m]) * 100 > 80)
+                    or
+                    (container_cpu_usage_percent{name!="",name!~"docker_exporter"} > 80)
                   for: 5m
                   labels:
                     severity: warning
