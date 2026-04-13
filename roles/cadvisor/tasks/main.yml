@@ -25,6 +25,27 @@
   set_fact:
     cgroup_mount: "{{ '/sys/fs/cgroup:/sys/fs/cgroup:ro' if cgroup_fstype.stdout == 'cgroup2fs' else '/sys/fs/cgroup:/cgroup:ro' }}"
 
+- name: Check if containerd socket exists
+  stat:
+    path: /run/containerd/containerd.sock
+  register: containerd_sock
+
+- name: Build cAdvisor volume list
+  set_fact:
+    cadvisor_volumes: >-
+      {{
+        [
+          '/:/rootfs:ro',
+          '/var/run:/var/run:rw',
+          '/var/run/docker.sock:/var/run/docker.sock:ro',
+          '/sys:/sys:ro',
+          cgroup_mount,
+          '/var/lib/docker/:/var/lib/docker:ro',
+          '/dev/disk/:/dev/disk:ro'
+        ]
+        + (['/run/containerd/containerd.sock:/run/containerd/containerd.sock:ro'] if containerd_sock.stat.exists else [])
+      }}
+
 - name: Run cAdvisor container
   docker_container:
     name: cadvisor
@@ -33,14 +54,7 @@
     restart_policy: always
     ports:
       - "{{ cadvisor_port }}:8080"
-    volumes:
-      - /:/rootfs:ro
-      - /var/run:/var/run:rw
-      - /var/run/docker.sock:/var/run/docker.sock:ro
-      - /sys:/sys:ro
-      - "{{ cgroup_mount }}"
-      - /var/lib/docker/:/var/lib/docker:ro
-      - /dev/disk/:/dev/disk:ro
+    volumes: "{{ cadvisor_volumes }}"
     command: "{{ cadvisor_extra_args | default(omit) }}"
     privileged: true
     cgroupns_mode: host
