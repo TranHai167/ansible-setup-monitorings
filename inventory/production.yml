@@ -29,7 +29,7 @@ all:
           ansible_aws_ssm_instance_id: i-01667b110e973054c
           private_ip: "20.10.2.125"
           cadvisor_version: "v0.52.1"
-          cadvisor_extra_args: "--docker_only=true --store_container_labels=true --disable_root_cgroup_stats=true"
+          cadvisor_extra_args: "--docker_only=true --store_container_labels=true --housekeeping_interval=10s"
         target-ec2-TS-M247-Cron:
           ansible_aws_ssm_instance_id: i-0ae93a49a72bc8557
           private_ip: "20.10.2.35"

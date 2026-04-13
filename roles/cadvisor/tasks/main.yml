@@ -26,10 +26,12 @@
       - "{{ cadvisor_port }}:8080"
     volumes:
       - /:/rootfs:ro
-      - /var/run:/var/run:ro
+      - /var/run:/var/run:rw
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - /sys:/sys:ro
-      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+      - /sys/fs/cgroup:/cgroup:ro
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
     command: "{{ cadvisor_extra_args | default(omit) }}"
     privileged: true
+    cgroupns_mode: host
