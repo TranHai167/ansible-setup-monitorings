@@ -1,0 +1,32 @@
+---
+- name: Ensure jq is installed
+  apt:
+    name: jq
+    state: present
+
+- name: Ensure textfile collector directory exists
+  file:
+    path: "{{ docker_exporter_textfile_path }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Deploy docker container metrics script
+  template:
+    src: docker-container-metrics.sh.j2
+    dest: /usr/local/bin/docker-container-metrics.sh
+    owner: root
+    group: root
+    mode: "0755"
+
+- name: Setup cron job for docker container metrics
+  cron:
+    name: "docker_container_metrics"
+    minute: "{{ docker_exporter_interval }}"
+    job: "/usr/local/bin/docker-container-metrics.sh"
+    user: root
+
+- name: Run initial metrics collection
+  command: /usr/local/bin/docker-container-metrics.sh
+  changed_when: false

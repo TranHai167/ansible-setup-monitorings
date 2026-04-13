@@ -26,6 +26,7 @@
   roles:
     - { role: node_exporter, tags: ['node_exporter'], when: install_node_exporter | default(true) | bool }
     - { role: cadvisor, tags: ['cadvisor'], when: install_cadvisor | default(true) | bool }
+    - { role: docker_exporter, tags: ['docker_exporter'], when: install_docker_exporter | default(false) | bool }
     - { role: phpfpm_exporter, tags: ['phpfpm_exporter'], when: install_phpfpm_exporter | default(false) | bool }
     - { role: magento_cron_monitor, tags: ['magento_cron_monitor'], when: install_magento_cron_monitor | default(false) | bool }
 
@@ -60,3 +61,4 @@
           cAdvisor       (8080): {{ 'OK' if cadvisor_check is success else 'FAILED' }}
           php-fpm_export (9253): {{ 'OK' if phpfpm_check is success else 'SKIPPED (not installed)' if phpfpm_check is skipped else 'FAILED' }}
           magento_cron   (textfile): {{ 'INSTALLED' if install_magento_cron_monitor | default(false) | bool else 'SKIPPED (not installed)' }}
+          docker_metrics (textfile): {{ 'INSTALLED' if install_docker_exporter | default(false) | bool else 'SKIPPED (not installed)' }}

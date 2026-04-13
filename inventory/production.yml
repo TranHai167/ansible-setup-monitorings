@@ -28,10 +28,11 @@ all:
         target-ec2-TS-Ecom-Gateway:
           ansible_aws_ssm_instance_id: i-01667b110e973054c
           private_ip: "20.10.2.125"
-          cadvisor_version: "v0.49.1"
-          cadvisor_extra_args: "--store_container_labels=true --housekeeping_interval=10s --allow_dynamic_housekeeping=true"
+          install_cadvisor: false
+          install_docker_exporter: true
         target-ec2-TS-M247-Cron:
           ansible_aws_ssm_instance_id: i-0ae93a49a72bc8557
           private_ip: "20.10.2.35"
           install_magento_cron_monitor: true
           install_cadvisor: false
+

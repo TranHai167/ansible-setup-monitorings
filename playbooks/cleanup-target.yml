@@ -44,6 +44,34 @@
       ignore_errors: true
       tags: [cadvisor]
 
+    # === Docker Exporter ===
+    - name: Stop and remove docker_exporter container
+      docker_container:
+        name: docker_exporter
+        state: absent
+      ignore_errors: true
+      tags: [docker_exporter]
+
+    - name: Remove docker container metrics crontab
+      cron:
+        name: "docker_container_metrics"
+        state: absent
+        user: root
+      ignore_errors: true
+      tags: [docker_exporter]
+
+    - name: Remove docker container metrics script
+      file:
+        path: /usr/local/bin/docker-container-metrics.sh
+        state: absent
+      tags: [docker_exporter]
+
+    - name: Remove docker container metrics file
+      file:
+        path: /var/lib/node_exporter/textfile_collector/docker_containers.prom
+        state: absent
+      tags: [docker_exporter]
+
     # === PHP-FPM Exporter ===
     - name: Stop and disable php-fpm_exporter
       systemd:
