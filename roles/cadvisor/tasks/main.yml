@@ -16,6 +16,15 @@
     state: absent
   ignore_errors: true
 
+- name: Check cgroup version
+  command: stat -f -c %T /sys/fs/cgroup
+  register: cgroup_fstype
+  changed_when: false
+
+- name: Set cgroup mount path
+  set_fact:
+    cgroup_mount: "{{ '/sys/fs/cgroup:/sys/fs/cgroup:ro' if cgroup_fstype.stdout == 'cgroup2fs' else '/sys/fs/cgroup:/cgroup:ro' }}"
+
 - name: Run cAdvisor container
   docker_container:
     name: cadvisor
@@ -29,7 +38,7 @@
       - /var/run:/var/run:rw
       - /var/run/docker.sock:/var/run/docker.sock:ro
       - /sys:/sys:ro
-      - /sys/fs/cgroup:/cgroup:ro
+      - "{{ cgroup_mount }}"
       - /var/lib/docker/:/var/lib/docker:ro
       - /dev/disk/:/dev/disk:ro
     command: "{{ cadvisor_extra_args | default(omit) }}"
