@@ -1,7 +1,7 @@
 #!/bin/bash
 # Docker Container Metrics for node_exporter textfile collector
-# Collects CPU, memory, network metrics per container via docker stats
-# Output: Prometheus text format to {{ docker_exporter_textfile_path }}/docker_containers.prom
+# Outputs cAdvisor-compatible metric names so existing Grafana dashboards work
+# Collects via: docker stats --no-stream
 
 PROM_FILE="{{ docker_exporter_textfile_path }}/docker_containers.prom"
 TMP_FILE="${PROM_FILE}.tmp"
@@ -23,20 +23,18 @@ convert_to_bytes() {
 }
 
 {
-  echo "# HELP container_cpu_usage_percent CPU usage percentage per container"
-  echo "# TYPE container_cpu_usage_percent gauge"
   echo "# HELP container_memory_usage_bytes Memory usage in bytes per container"
   echo "# TYPE container_memory_usage_bytes gauge"
-  echo "# HELP container_memory_limit_bytes Memory limit in bytes per container"
-  echo "# TYPE container_memory_limit_bytes gauge"
-  echo "# HELP container_memory_usage_percent Memory usage percentage per container"
-  echo "# TYPE container_memory_usage_percent gauge"
+  echo "# HELP container_cpu_usage_percent CPU usage percentage per container"
+  echo "# TYPE container_cpu_usage_percent gauge"
+  echo "# HELP container_last_seen Last time container was seen (unix timestamp)"
+  echo "# TYPE container_last_seen gauge"
   echo "# HELP container_network_rx_bytes Network received bytes per container"
   echo "# TYPE container_network_rx_bytes gauge"
   echo "# HELP container_network_tx_bytes Network transmitted bytes per container"
   echo "# TYPE container_network_tx_bytes gauge"
-  echo "# HELP container_running_state Container running state (1=running, 0=stopped)"
-  echo "# TYPE container_running_state gauge"
+
+  NOW=$(date +%s)
 
   docker stats --no-stream --format '{{ '{{' }}json .{{ '}}' }}' 2>/dev/null | while IFS= read -r stats; do
     name=$(echo "$stats" | jq -r '.Name')
@@ -44,29 +42,23 @@ convert_to_bytes() {
 
     [ "$name" = "null" ] || [ -z "$name" ] && continue
 
-    # Get image name
     image=$(docker inspect --format '{{ '{{' }}.Config.Image{{ '}}' }}' "$id" 2>/dev/null)
 
-    labels="name=\"${name}\",id=\"${id}\",image=\"${image}\""
+    labels="id=\"/docker/${id}\",name=\"${name}\",image=\"${image}\""
 
     cpu=$(echo "$stats" | jq -r '.CPUPerc' | tr -d '%')
-    mem_perc=$(echo "$stats" | jq -r '.MemPerc' | tr -d '%')
 
     mem_usage_raw=$(echo "$stats" | jq -r '.MemUsage' | awk -F'/' '{print $1}' | xargs)
-    mem_limit_raw=$(echo "$stats" | jq -r '.MemUsage' | awk -F'/' '{print $2}' | xargs)
     net_rx_raw=$(echo "$stats" | jq -r '.NetIO' | awk -F'/' '{print $1}' | xargs)
     net_tx_raw=$(echo "$stats" | jq -r '.NetIO' | awk -F'/' '{print $2}' | xargs)
 
     mem_usage_bytes=$(convert_to_bytes "$mem_usage_raw")
-    mem_limit_bytes=$(convert_to_bytes "$mem_limit_raw")
     net_rx_bytes=$(convert_to_bytes "$net_rx_raw")
     net_tx_bytes=$(convert_to_bytes "$net_tx_raw")
 
-    echo "container_running_state{${labels}} 1"
-    echo "container_cpu_usage_percent{${labels}} ${cpu}"
     echo "container_memory_usage_bytes{${labels}} ${mem_usage_bytes}"
-    echo "container_memory_limit_bytes{${labels}} ${mem_limit_bytes}"
-    echo "container_memory_usage_percent{${labels}} ${mem_perc}"
+    echo "container_cpu_usage_percent{${labels}} ${cpu}"
+    echo "container_last_seen{${labels}} ${NOW}"
     echo "container_network_rx_bytes{${labels}} ${net_rx_bytes}"
     echo "container_network_tx_bytes{${labels}} ${net_tx_bytes}"
   done
