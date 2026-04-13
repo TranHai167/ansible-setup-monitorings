@@ -1,0 +1,264 @@
+{
+  "title": "Magento Cron Monitor - TS-M247-Cron",
+  "tags": ["magento", "cron"],
+  "timezone": "browser",
+  "refresh": "30s",
+  "time": {
+    "from": "now-1h",
+    "to": "now"
+  },
+  "panels": [
+    {
+      "id": 1,
+      "title": "Success",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 0, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "green" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }] }
+        },
+        "overrides": []
+      },
+      "targets": [{
+        "refId": "A",
+        "expr": "magento_cron_jobs_total{status=\"success\", instance_name=\"target-ec2-TS-M247-Cron\"}",
+        "legendFormat": "success",
+        "datasource": { "type": "prometheus" }
+      }],
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 2,
+      "title": "Error",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 4, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "red" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "red", "value": null }] }
+        },
+        "overrides": []
+      },
+      "targets": [{
+        "refId": "A",
+        "expr": "magento_cron_jobs_total{status=\"error\", instance_name=\"target-ec2-TS-M247-Cron\"}",
+        "legendFormat": "error",
+        "datasource": { "type": "prometheus" }
+      }],
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 3,
+      "title": "Missed",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 8, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "orange" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "orange", "value": null }] }
+        },
+        "overrides": []
+      },
+      "targets": [{
+        "refId": "A",
+        "expr": "magento_cron_jobs_total{status=\"missed\", instance_name=\"target-ec2-TS-M247-Cron\"}",
+        "legendFormat": "missed",
+        "datasource": { "type": "prometheus" }
+      }],
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 4,
+      "title": "Pending",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 12, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "blue" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "targets": [{
+        "refId": "A",
+        "expr": "magento_cron_jobs_total{status=\"pending\", instance_name=\"target-ec2-TS-M247-Cron\"}",
+        "legendFormat": "pending",
+        "datasource": { "type": "prometheus" }
+      }],
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 5,
+      "title": "Running",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 16, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "fixed", "fixedColor": "super-light-blue" },
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "super-light-blue", "value": null }] }
+        },
+        "overrides": []
+      },
+      "targets": [{
+        "refId": "A",
+        "expr": "magento_cron_jobs_total{status=\"running\", instance_name=\"target-ec2-TS-M247-Cron\"}",
+        "legendFormat": "running",
+        "datasource": { "type": "prometheus" }
+      }],
+      "options": { "colorMode": "value", "graphMode": "area", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 6,
+      "title": "Scrape Health",
+      "type": "stat",
+      "gridPos": { "h": 5, "w": 4, "x": 20, "y": 0 },
+      "fieldConfig": {
+        "defaults": {
+          "mappings": [
+            { "type": "value", "options": { "0": { "text": "OK", "color": "green", "index": 0 }, "1": { "text": "DB ERROR", "color": "red", "index": 1 } } }
+          ],
+          "thresholds": { "mode": "absolute", "steps": [{ "color": "green", "value": null }, { "color": "red", "value": 1 }] }
+        },
+        "overrides": []
+      },
+      "targets": [{
+        "refId": "A",
+        "expr": "magento_cron_scrape_error{instance_name=\"target-ec2-TS-M247-Cron\"}",
+        "legendFormat": "scrape",
+        "datasource": { "type": "prometheus" }
+      }],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 7,
+      "title": "Cron Jobs Trend",
+      "type": "timeseries",
+      "gridPos": { "h": 9, "w": 24, "x": 0, "y": 5 },
+      "fieldConfig": {
+        "defaults": {
+          "custom": { "lineWidth": 2, "fillOpacity": 10, "pointSize": 5, "showPoints": "auto", "spanNulls": false }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "success" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } }] },
+          { "matcher": { "id": "byName", "options": "error" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } }] },
+          { "matcher": { "id": "byName", "options": "missed" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "orange" } }] },
+          { "matcher": { "id": "byName", "options": "pending" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "blue" } }] },
+          { "matcher": { "id": "byName", "options": "running" }, "properties": [{ "id": "color", "value": { "mode": "fixed", "fixedColor": "super-light-blue" } }] }
+        ]
+      },
+      "targets": [{
+        "refId": "A",
+        "expr": "magento_cron_jobs_total{instance_name=\"target-ec2-TS-M247-Cron\"}",
+        "legendFormat": "{{status}}",
+        "datasource": { "type": "prometheus" }
+      }],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 8,
+      "title": "Current Error Jobs (Snapshot)",
+      "type": "table",
+      "gridPos": { "h": 9, "w": 16, "x": 0, "y": 14 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "job_code" }, "properties": [{ "id": "displayName", "value": "Job Code" }, { "id": "custom.width", "value": 400 }] },
+          { "matcher": { "id": "byName", "options": "Value" }, "properties": [{ "id": "displayName", "value": "Error Count" }] },
+          { "matcher": { "id": "byName", "options": "Time" }, "properties": [{ "id": "custom.hidden", "value": true }] },
+          { "matcher": { "id": "byName", "options": "instance" }, "properties": [{ "id": "custom.hidden", "value": true }] },
+          { "matcher": { "id": "byName", "options": "instance_name" }, "properties": [{ "id": "custom.hidden", "value": true }] },
+          { "matcher": { "id": "byName", "options": "job" }, "properties": [{ "id": "custom.hidden", "value": true }] },
+          { "matcher": { "id": "byName", "options": "__name__" }, "properties": [{ "id": "custom.hidden", "value": true }] }
+        ]
+      },
+      "targets": [{
+        "refId": "A",
+        "expr": "topk(20, magento_cron_error_by_job{instance_name=\"target-ec2-TS-M247-Cron\"})",
+        "legendFormat": "{{job_code}}",
+        "instant": true,
+        "format": "table",
+        "datasource": { "type": "prometheus" }
+      }]
+    },
+    {
+      "id": 9,
+      "title": "Last Scrape Age",
+      "type": "stat",
+      "gridPos": { "h": 4, "w": 8, "x": 16, "y": 14 },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              { "color": "green", "value": null },
+              { "color": "yellow", "value": 120 },
+              { "color": "red", "value": 300 }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "targets": [{
+        "refId": "A",
+        "expr": "time() - magento_cron_last_scrape_timestamp{instance_name=\"target-ec2-TS-M247-Cron\"}",
+        "legendFormat": "age",
+        "datasource": { "type": "prometheus" }
+      }],
+      "options": { "colorMode": "background", "graphMode": "none", "textMode": "auto", "reduceOptions": { "calcs": ["lastNotNull"] } }
+    },
+    {
+      "id": 10,
+      "title": "Error Jobs History",
+      "type": "timeseries",
+      "gridPos": { "h": 5, "w": 8, "x": 16, "y": 18 },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "palette-classic" },
+          "custom": { "lineWidth": 1, "fillOpacity": 10 }
+        },
+        "overrides": []
+      },
+      "targets": [{
+        "refId": "A",
+        "expr": "topk(5, magento_cron_error_by_job{instance_name=\"target-ec2-TS-M247-Cron\"})",
+        "legendFormat": "{{job_code}}",
+        "datasource": { "type": "prometheus" }
+      }],
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } }
+    },
+    {
+      "id": 11,
+      "title": "Error & Missed Details (Latest per Job)",
+      "type": "table",
+      "gridPos": { "h": 8, "w": 24, "x": 0, "y": 23 },
+      "fieldConfig": {
+        "defaults": {},
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "job_code" }, "properties": [{ "id": "displayName", "value": "Job Code" }, { "id": "custom.width", "value": 220 }] },
+          { "matcher": { "id": "byName", "options": "status" }, "properties": [{ "id": "displayName", "value": "Status" }, { "id": "custom.width", "value": 80 }] },
+          { "matcher": { "id": "byName", "options": "message" }, "properties": [{ "id": "displayName", "value": "Message" }, { "id": "custom.width", "value": 450 }] },
+          { "matcher": { "id": "byName", "options": "scheduled_at" }, "properties": [{ "id": "displayName", "value": "Scheduled At (UTC+7)" }, { "id": "custom.width", "value": 170 }] },
+          { "matcher": { "id": "byName", "options": "executed_at" }, "properties": [{ "id": "displayName", "value": "Executed At (UTC+7)" }, { "id": "custom.width", "value": 170 }] },
+          { "matcher": { "id": "byName", "options": "Value" }, "properties": [{ "id": "custom.hidden", "value": true }] },
+          { "matcher": { "id": "byName", "options": "Time" }, "properties": [{ "id": "custom.hidden", "value": true }] },
+          { "matcher": { "id": "byName", "options": "instance" }, "properties": [{ "id": "custom.hidden", "value": true }] },
+          { "matcher": { "id": "byName", "options": "instance_name" }, "properties": [{ "id": "custom.hidden", "value": true }] },
+          { "matcher": { "id": "byName", "options": "job" }, "properties": [{ "id": "custom.hidden", "value": true }] },
+          { "matcher": { "id": "byName", "options": "__name__" }, "properties": [{ "id": "custom.hidden", "value": true }] }
+        ]
+      },
+      "targets": [{
+        "refId": "A",
+        "expr": "magento_cron_error_detail{instance_name=\"target-ec2-TS-M247-Cron\"}",
+        "legendFormat": "{{job_code}}",
+        "instant": true,
+        "format": "table",
+        "datasource": { "type": "prometheus" }
+      }]
+    }
+  ],
+  "schemaVersion": 39,
+  "templating": { "list": [] }
+}

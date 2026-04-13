@@ -196,3 +196,5 @@ Allow ufw rule for node_exporter port:
 ```
 sudo ufw allow 9100/tcp
 ```
+
+aws ssm start-session --target i-0ae93a49a72bc8557  --document-name AWS-StartPortForwardingSessionToRemoteHost --parameters "host=['ecom-proxydb.proxy-cl2l6b5wfjrb.ap-southeast-1.rds.amazonaws.com'],portNumber=['3306'],localPortNumber=['3306']"

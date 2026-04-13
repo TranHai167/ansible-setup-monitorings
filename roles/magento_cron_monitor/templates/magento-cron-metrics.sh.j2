@@ -69,5 +69,30 @@ if [ -n "$error_jobs" ]; then
   done
 fi
 
+# Lấy error + missed detail cho các job gần nhất (1 giờ)
+# Chỉ lấy lỗi mới nhất của mỗi job_code, giới hạn message 200 ký tự
+error_details=$($MYSQL_CMD -e "
+SELECT t.job_code, t.status,
+  REPLACE(REPLACE(COALESCE(SUBSTRING(t.messages, 1, 200), 'Process killed/timeout - no message'), '\"', ''), '\n', ' '),
+  DATE_FORMAT(CONVERT_TZ(t.scheduled_at, '+00:00', '+07:00'), '%Y-%m-%d %H:%i:%s'),
+  DATE_FORMAT(CONVERT_TZ(t.executed_at, '+00:00', '+07:00'), '%Y-%m-%d %H:%i:%s')
+FROM cron_schedule t
+INNER JOIN (
+  SELECT job_code, status, MAX(schedule_id) as max_id
+  FROM cron_schedule
+  WHERE status IN ('error','missed') AND scheduled_at >= NOW() - INTERVAL 1 HOUR
+  GROUP BY job_code, status
+) latest ON t.schedule_id = latest.max_id;
+" 2>/dev/null)
+
+if [ -n "$error_details" ]; then
+  echo "# HELP magento_cron_error_detail Latest error/missed detail per job (last 1h)" >> "$METRICS_TMP"
+  echo "# TYPE magento_cron_error_detail gauge" >> "$METRICS_TMP"
+  echo "$error_details" | while IFS=$'\t' read -r job_code status msg scheduled_at executed_at; do
+    clean_msg=$(echo "$msg" | tr -d '"\\' | tr '\n' ' ' | head -c 200)
+    echo "magento_cron_error_detail{job_code=\"$job_code\",status=\"$status\",message=\"$clean_msg\",scheduled_at=\"$scheduled_at\",executed_at=\"$executed_at\"} 1" >> "$METRICS_TMP"
+  done
+fi
+
 # Atomic write
 mv "$METRICS_TMP" "$METRICS_FILE"
