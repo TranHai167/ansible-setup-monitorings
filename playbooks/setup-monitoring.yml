@@ -203,7 +203,7 @@
                     summary: "Network receive > 100MB/s on {{ '{{' }} $labels.instance_name {{ '}}' }}"
 
                 - alert: SystemdServiceFailed
-                  expr: node_systemd_unit_state{state="failed"} == 1
+                  expr: node_systemd_unit_state{state="failed",name!~"user@.*\\.service"} == 1
                   for: 1m
                   labels:
                     severity: critical
