@@ -208,7 +208,7 @@ Sửa file `.env`:
 # SMTP cho alert email
 export SMTP_HOST=smtp.office365.com
 export SMTP_PORT=587
-export SMTP_USER=no_reply_test@sts.vn
+export SMTP_USER=no_reply_test@tst.vn
 export SMTP_PASSWORD=<password>
 
 # Email nhận alert
