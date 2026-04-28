@@ -63,7 +63,7 @@
 | Grafana Dashboard | http://18.138.145.51:3000/dashboards |
 | Prometheus | http://18.138.145.51:9090 |
 | Alertmanager | http://18.138.145.51:9093 |
-| Git Repo | https://gitlab.proteam.click/monitorings/ansible-setup-monitorings.git |
+| Git Repo | https://github.com/TranHai167/ansible-setup-monitorings.git |
 
 ---
 
@@ -192,7 +192,7 @@ aws sts get-caller-identity
 ### 4.1 Clone repo
 
 ```bash
-git clone https://gitlab.proteam.click/monitorings/ansible-setup-monitorings.git
+git clone https://github.com/TranHai167/ansible-setup-monitorings.git
 cd ansible-setup-monitorings
 ```
 
